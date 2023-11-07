@@ -24,20 +24,24 @@ func (au *LocalAuthenticator) InflowwAuthenticateContext(ctx context.Context, us
 	if inboundIP != nil {
 		ip := inboundIP.(net.IP)
 		if !ip.IsLoopback() && !ip.IsPrivate() {
-			p := ip.String()
-			src := p + user + "&&4sg123g[]/~"
-			hash := sha256.New()
-			hash.Write([]byte(src))
-			hashedSrc := hash.Sum(nil)
-			hashedSrcHex := hex.EncodeToString(hashedSrc)
-			if hashedSrcHex == password {
+			expected := GeneratePass(ip.String(), user)
+			if expected == password {
 				return true
 			} else {
-				log.Logf("user pass %s/%s, expect pass %s", user, password, hashedSrcHex)
+				log.Logf("user pass %s/%s, expect pass %s", user, password, expected)
 			}
 		}
 	}
 	return false
+}
+
+func GeneratePass(ip, user string) string {
+	src := ip + user + "&&4sg123g[]/~"
+	hash := sha256.New()
+	hash.Write([]byte(src))
+	hashedSrc := hash.Sum(nil)
+	hashedSrcHex := hex.EncodeToString(hashedSrc)
+	return hashedSrcHex
 }
 
 // LocalAuthenticator is an Authenticator that authenticates client by local key-value pairs.

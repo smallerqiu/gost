@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strings"
 
 	_ "net/http/pprof"
 
@@ -23,6 +24,12 @@ var (
 )
 
 func init() {
+
+	if len(os.Args) == 4 && strings.ToLower(os.Args[1]) == "genpass" {
+		fmt.Println(gost.GeneratePass(os.Args[2], os.Args[3]))
+		os.Exit(0)
+	}
+
 	gost.SetLogger(&gost.LogLogger{})
 
 	var (
