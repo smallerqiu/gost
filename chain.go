@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"syscall"
 	"time"
 
@@ -201,7 +202,16 @@ func (c *Chain) dialWithOptions(ctx context.Context, network, address string, op
 		d := &net.Dialer{
 			Timeout: timeout,
 			Control: controlFunction,
-			// LocalAddr: laddr, // TODO: optional local address
+		}
+		// use same ip between inbound and outbound
+		inboundIP := ctx.Value("InboundIP")
+		if inboundIP != nil && strings.ToLower(network) == "tcp" {
+			ip := inboundIP.(net.IP)
+			if !ip.IsLoopback() && !ip.IsPrivate() {
+				d.LocalAddr = &net.TCPAddr{
+					IP: ip,
+				}
+			}
 		}
 		return d.DialContext(ctx, network, ipAddr)
 	}

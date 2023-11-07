@@ -142,6 +142,12 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 		return
 	}
 
+	ctx := req.Context()
+	inboundAddr, ok := conn.LocalAddr().(*net.TCPAddr)
+	if ok {
+		ctx = context.WithValue(ctx, "InboundIP", inboundAddr.IP)
+	}
+
 	// try to get the actual host.
 	if v := req.Header.Get("Gost-Target"); v != "" {
 		if h, err := decodeServerName(v); err == nil {
@@ -208,7 +214,7 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 		return
 	}
 
-	if !h.authenticate(conn, req, resp) {
+	if !h.authenticateContext(ctx, conn, req, resp) {
 		return
 	}
 
@@ -268,7 +274,7 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 			continue
 		}
 
-		cc, err = route.Dial(host,
+		cc, err = route.DialContext(ctx, "tcp", host,
 			TimeoutChainOption(h.options.Timeout),
 			HostsChainOption(h.options.Hosts),
 			ResolverChainOption(h.options.Resolver),
@@ -313,13 +319,13 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 	log.Logf("[http] %s >-< %s", conn.RemoteAddr(), host)
 }
 
-func (h *httpHandler) authenticate(conn net.Conn, req *http.Request, resp *http.Response) (ok bool) {
+func (h *httpHandler) authenticateContext(ctx context.Context, conn net.Conn, req *http.Request, resp *http.Response) (ok bool) {
 	u, p, _ := basicProxyAuth(req.Header.Get("Proxy-Authorization"))
 	if Debug && (u != "" || p != "") {
 		log.Logf("[http] %s -> %s : Authorization '%s' '%s'",
 			conn.RemoteAddr(), conn.LocalAddr(), u, p)
 	}
-	if h.options.Authenticator == nil || h.options.Authenticator.Authenticate(u, p) {
+	if h.options.Authenticator == nil || h.options.Authenticator.InflowwAuthenticateContext(ctx, u, p) {
 		return true
 	}
 
@@ -340,7 +346,9 @@ func (h *httpHandler) authenticate(conn net.Conn, req *http.Request, resp *http.
 				resp = r
 			}
 		case "host":
-			cc, err := net.Dial("tcp", ss[1])
+			d := net.Dialer{
+			}
+			cc, err := d.DialContext(ctx, "tcp", ss[1])
 			if err == nil {
 				defer cc.Close()
 

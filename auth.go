@@ -2,15 +2,42 @@ package gost
 
 import (
 	"bufio"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
+	"net"
 	"strings"
 	"sync"
 	"time"
+	"github.com/go-log/log"
 )
 
 // Authenticator is an interface for user authentication.
 type Authenticator interface {
 	Authenticate(user, password string) bool
+	InflowwAuthenticateContext(ctx context.Context, user, password string) bool
+}
+
+func (au *LocalAuthenticator) InflowwAuthenticateContext(ctx context.Context, user, password string) bool {
+	inboundIP := ctx.Value("InboundIP")
+	if inboundIP != nil {
+		ip := inboundIP.(net.IP)
+		if !ip.IsLoopback() && !ip.IsPrivate() {
+			p := ip.String()
+			src := p + user + "&&4sg123g[]/~"
+			hash := sha256.New()
+			hash.Write([]byte(src))
+			hashedSrc := hash.Sum(nil)
+			hashedSrcHex := hex.EncodeToString(hashedSrc)
+			if hashedSrcHex == password {
+				return true
+			} else {
+				log.Logf("user pass %s/%s, expect pass %s", user, password, hashedSrcHex)
+			}
+		}
+	}
+	return false
 }
 
 // LocalAuthenticator is an Authenticator that authenticates client by local key-value pairs.

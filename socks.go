@@ -168,7 +168,12 @@ func (selector *serverSelector) OnSelected(method uint8, conn net.Conn) (net.Con
 			log.Logf("[socks5] %s - %s: %s", conn.RemoteAddr(), conn.LocalAddr(), req.String())
 		}
 
-		if selector.Authenticator != nil && !selector.Authenticator.Authenticate(req.Username, req.Password) {
+		ctx := context.Background()
+		inboundAddr, ok := conn.LocalAddr().(*net.TCPAddr)
+		if ok {
+			ctx = context.WithValue(ctx, "InboundIP", inboundAddr.IP)
+		}
+		if selector.Authenticator != nil && !selector.Authenticator.InflowwAuthenticateContext(ctx, req.Username, req.Password) {
 			resp := gosocks5.NewUserPassResponse(gosocks5.UserPassVer, gosocks5.Failure)
 			if err := resp.Write(conn); err != nil {
 				log.Logf("[socks5] %s - %s: %s", conn.RemoteAddr(), conn.LocalAddr(), err)
@@ -939,7 +944,12 @@ func (h *socks5Handler) handleConnect(conn net.Conn, req *gosocks5.Request) {
 		fmt.Fprintf(&buf, "%s", host)
 		log.Log("[route]", buf.String())
 
-		cc, err = route.Dial(host,
+		ctx := context.Background()
+		inboundAddr, ok := conn.LocalAddr().(*net.TCPAddr)
+		if ok {
+			ctx = context.WithValue(ctx, "InboundIP", inboundAddr.IP)
+		}
+		cc, err = route.DialContext(ctx, "tcp", host,
 			TimeoutChainOption(h.options.Timeout),
 			HostsChainOption(h.options.Hosts),
 			ResolverChainOption(h.options.Resolver),
