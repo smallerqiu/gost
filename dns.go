@@ -83,7 +83,11 @@ func (h *dnsHandler) Handle(conn net.Conn) {
 	if resolver == nil {
 		resolver = defaultResolver
 	}
-	reply, err := resolver.Exchange(context.Background(), b[:n])
+	ctx := context.Background()
+	if inboundAddr, ok := conn.LocalAddr().(*net.TCPAddr); ok {
+		ctx = context.WithValue(ctx, "InboundIP", inboundAddr.IP)
+	}
+	reply, err := resolver.Exchange(ctx, b[:n])
 	if err != nil {
 		log.Logf("[dns] %s - %s exchange: %v", conn.RemoteAddr(), conn.LocalAddr(), err)
 		return

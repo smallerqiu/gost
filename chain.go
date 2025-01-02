@@ -212,6 +212,13 @@ func (c *Chain) dialWithOptions(ctx context.Context, network, address string, op
 					IP: ip,
 				}
 			}
+		} else if inboundIP != nil && strings.ToLower(network) == "udp" {
+			ip := inboundIP.(net.IP)
+			if !ip.IsLoopback() && !ip.IsPrivate() {
+				d.LocalAddr = &net.UDPAddr{
+					IP: ip,
+				}
+			}
 		}
 		return d.DialContext(ctx, network, ipAddr)
 	}
