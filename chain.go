@@ -154,7 +154,7 @@ func (c *Chain) dialWithOptions(ctx context.Context, network, address string, op
 
 	ipAddr := address
 	if address != "" {
-		ipAddr = c.resolve(address, options.Resolver, options.Hosts)
+		ipAddr = c.resolve(ctx, address, options.Resolver, options.Hosts)
 		if ipAddr == "" {
 			return nil, fmt.Errorf("resolver: domain %s does not exists", address)
 		}
@@ -213,8 +213,7 @@ func (c *Chain) dialWithOptions(ctx context.Context, network, address string, op
 				}
 			}
 		} else if inboundIP != nil && strings.ToLower(network) == "udp" {
-			ip := inboundIP.(net.IP)
-			if !ip.IsLoopback() && !ip.IsPrivate() {
+			if ip, ok := inboundIP.(net.IP); ok && !ip.IsLoopback() {
 				d.LocalAddr = &net.UDPAddr{
 					IP: ip,
 				}
@@ -237,7 +236,7 @@ func (c *Chain) dialWithOptions(ctx context.Context, network, address string, op
 	return cc, nil
 }
 
-func (*Chain) resolve(addr string, resolver Resolver, hosts *Hosts) string {
+func (*Chain) resolve(ctx context.Context, addr string, resolver Resolver, hosts *Hosts) string {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return addr
@@ -247,7 +246,7 @@ func (*Chain) resolve(addr string, resolver Resolver, hosts *Hosts) string {
 		return net.JoinHostPort(ip.String(), port)
 	}
 	if resolver != nil {
-		ips, err := resolver.Resolve(host)
+		ips, err := resolver.Resolve(ctx, host)
 		if err != nil {
 			log.Logf("[resolver] %s: %v", host, err)
 		}
