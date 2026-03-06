@@ -121,6 +121,7 @@ type HandshakeOptions struct {
 	TLSConfig  *tls.Config
 	WSOptions  *WSOptions
 	KCPConfig  *KCPConfig
+	QUICConfig *QUICConfig
 	SSHConfig  *SSHConfig
 }
 
@@ -187,6 +188,13 @@ func WSOptionsHandshakeOption(options *WSOptions) HandshakeOption {
 func KCPConfigHandshakeOption(config *KCPConfig) HandshakeOption {
 	return func(opts *HandshakeOptions) {
 		opts.KCPConfig = config
+	}
+}
+
+// QUICConfigHandshakeOption specifies the QUIC config used by QUIC handshake
+func QUICConfigHandshakeOption(config *QUICConfig) HandshakeOption {
+	return func(opts *HandshakeOptions) {
+		opts.QUICConfig = config
 	}
 }
 
