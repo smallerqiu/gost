@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strings"
 	"syscall"
 	"time"
 
@@ -154,7 +153,7 @@ func (c *Chain) dialWithOptions(ctx context.Context, network, address string, op
 
 	ipAddr := address
 	if address != "" {
-		ipAddr = c.resolve(ctx, address, options.Resolver, options.Hosts)
+		ipAddr = c.resolve(address, options.Resolver, options.Hosts)
 		if ipAddr == "" {
 			return nil, fmt.Errorf("resolver: domain %s does not exists", address)
 		}
@@ -202,22 +201,7 @@ func (c *Chain) dialWithOptions(ctx context.Context, network, address string, op
 		d := &net.Dialer{
 			Timeout: timeout,
 			Control: controlFunction,
-		}
-		// use same ip between inbound and outbound
-		inboundIP := ctx.Value("InboundIP")
-		if inboundIP != nil && strings.ToLower(network) == "tcp" {
-			ip := inboundIP.(net.IP)
-			if !ip.IsLoopback() && !ip.IsPrivate() {
-				d.LocalAddr = &net.TCPAddr{
-					IP: ip,
-				}
-			}
-		} else if inboundIP != nil && strings.ToLower(network) == "udp" {
-			if ip, ok := inboundIP.(net.IP); ok && !ip.IsLoopback() {
-				d.LocalAddr = &net.UDPAddr{
-					IP: ip,
-				}
-			}
+			// LocalAddr: laddr, // TODO: optional local address
 		}
 		return d.DialContext(ctx, network, ipAddr)
 	}
@@ -236,7 +220,7 @@ func (c *Chain) dialWithOptions(ctx context.Context, network, address string, op
 	return cc, nil
 }
 
-func (*Chain) resolve(ctx context.Context, addr string, resolver Resolver, hosts *Hosts) string {
+func (*Chain) resolve(addr string, resolver Resolver, hosts *Hosts) string {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return addr
@@ -246,7 +230,7 @@ func (*Chain) resolve(ctx context.Context, addr string, resolver Resolver, hosts
 		return net.JoinHostPort(ip.String(), port)
 	}
 	if resolver != nil {
-		ips, err := resolver.Resolve(ctx, host)
+		ips, err := resolver.Resolve(host)
 		if err != nil {
 			log.Logf("[resolver] %s: %v", host, err)
 		}

@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"strconv"
@@ -83,11 +82,7 @@ func (h *dnsHandler) Handle(conn net.Conn) {
 	if resolver == nil {
 		resolver = defaultResolver
 	}
-	ctx := context.Background()
-	if inboundAddr, ok := conn.LocalAddr().(*net.TCPAddr); ok {
-		ctx = context.WithValue(ctx, "InboundIP", inboundAddr.IP)
-	}
-	reply, err := resolver.Exchange(ctx, b[:n])
+	reply, err := resolver.Exchange(context.Background(), b[:n])
 	if err != nil {
 		log.Logf("[dns] %s - %s exchange: %v", conn.RemoteAddr(), conn.LocalAddr(), err)
 		return
@@ -271,7 +266,7 @@ func (l *dnsListener) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		buf, err = ioutil.ReadAll(r.Body)
+		buf, err = io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -142,12 +143,6 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 		return
 	}
 
-	ctx := req.Context()
-	inboundAddr, ok := conn.LocalAddr().(*net.TCPAddr)
-	if ok {
-		ctx = context.WithValue(ctx, "InboundIP", inboundAddr.IP)
-	}
-
 	// try to get the actual host.
 	if v := req.Header.Get("Gost-Target"); v != "" {
 		if h, err := decodeServerName(v); err == nil {
@@ -214,7 +209,7 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 		return
 	}
 
-	if !h.authenticateContext(ctx, conn, req, resp) {
+	if !h.authenticate(conn, req, resp) {
 		return
 	}
 
@@ -274,7 +269,7 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 			continue
 		}
 
-		cc, err = route.DialContext(ctx, "tcp", host,
+		cc, err = route.Dial(host,
 			TimeoutChainOption(h.options.Timeout),
 			HostsChainOption(h.options.Hosts),
 			ResolverChainOption(h.options.Resolver),
@@ -298,34 +293,72 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 	}
 	defer cc.Close()
 
-	if req.Method == http.MethodConnect {
-		b := []byte("HTTP/1.1 200 Connection established\r\n" +
-			"Proxy-Agent: " + proxyAgent + "\r\n\r\n")
-		if Debug {
-			log.Logf("[http] %s <- %s\n%s", conn.RemoteAddr(), conn.LocalAddr(), string(b))
-		}
-		conn.Write(b)
-	} else {
-		req.Header.Del("Proxy-Connection")
-
-		if err = req.Write(cc); err != nil {
-			log.Logf("[http] %s -> %s : %s", conn.RemoteAddr(), conn.LocalAddr(), err)
-			return
-		}
+	if req.Method != http.MethodConnect {
+		h.handleProxy(conn, cc, req)
+		return
 	}
+
+	b := []byte("HTTP/1.1 200 Connection established\r\n" +
+		"Proxy-Agent: " + proxyAgent + "\r\n\r\n")
+	if Debug {
+		log.Logf("[http] %s <- %s\n%s", conn.RemoteAddr(), conn.LocalAddr(), string(b))
+	}
+	conn.Write(b)
 
 	log.Logf("[http] %s <-> %s", conn.RemoteAddr(), host)
 	transport(conn, cc)
 	log.Logf("[http] %s >-< %s", conn.RemoteAddr(), host)
 }
 
-func (h *httpHandler) authenticateContext(ctx context.Context, conn net.Conn, req *http.Request, resp *http.Response) (ok bool) {
+func (h *httpHandler) handleProxy(rw, cc io.ReadWriter, req *http.Request) (err error) {
+	req.Header.Del("Proxy-Connection")
+
+	if err = req.Write(cc); err != nil {
+		return err
+	}
+
+	ch := make(chan error, 1)
+
+	go func() {
+		ch <- copyBuffer(rw, cc)
+	}()
+
+	for {
+		err := func() error {
+			req, err := http.ReadRequest(bufio.NewReader(rw))
+			if err != nil {
+				return err
+			}
+
+			if Debug {
+				dump, _ := httputil.DumpRequest(req, false)
+				log.Log(string(dump))
+			}
+
+			req.Header.Del("Proxy-Connection")
+
+			if err = req.Write(cc); err != nil {
+				return err
+			}
+			return nil
+		}()
+		ch <- err
+
+		if err != nil {
+			break
+		}
+	}
+
+	return <-ch
+}
+
+func (h *httpHandler) authenticate(conn net.Conn, req *http.Request, resp *http.Response) (ok bool) {
 	u, p, _ := basicProxyAuth(req.Header.Get("Proxy-Authorization"))
 	if Debug && (u != "" || p != "") {
 		log.Logf("[http] %s -> %s : Authorization '%s' '%s'",
 			conn.RemoteAddr(), conn.LocalAddr(), u, p)
 	}
-	if h.options.Authenticator == nil || h.options.Authenticator.InflowwAuthenticateContext(ctx, u, p) {
+	if h.options.Authenticator == nil || h.options.Authenticator.Authenticate(u, p) {
 		return true
 	}
 
@@ -346,9 +379,7 @@ func (h *httpHandler) authenticateContext(ctx context.Context, conn net.Conn, re
 				resp = r
 			}
 		case "host":
-			d := net.Dialer{
-			}
-			cc, err := d.DialContext(ctx, "tcp", ss[1])
+			cc, err := net.Dial("tcp", ss[1])
 			if err == nil {
 				defer cc.Close()
 
@@ -387,7 +418,7 @@ func (h *httpHandler) authenticateContext(ctx context.Context, conn net.Conn, re
 	} else {
 		resp.Header = http.Header{}
 		resp.Header.Set("Server", "nginx/1.14.1")
-		resp.Header.Set("Date", time.Now().Format(http.TimeFormat))
+		resp.Header.Set("Date", time.Now().UTC().Format(http.TimeFormat))
 		if resp.StatusCode == http.StatusOK {
 			resp.Header.Set("Connection", "keep-alive")
 		}
