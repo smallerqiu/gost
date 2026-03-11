@@ -165,7 +165,8 @@ func (h *relayHandler) Handle(conn net.Conn) {
 		Version: relay.Version1,
 		Status:  relay.StatusOK,
 	}
-	if h.options.Authenticator != nil && !h.options.Authenticator.Authenticate(user, pass) {
+	ip := GetIP(conn)
+	if h.options.Authenticator != nil && !h.options.Authenticator.IFAuthenticate(ip, user, pass) {
 		resp.Status = relay.StatusUnauthorized
 		resp.WriteTo(conn)
 		log.Logf("[relay] %s -> %s : %s unauthorized", conn.RemoteAddr(), conn.LocalAddr(), user)
@@ -228,7 +229,8 @@ func (h *relayHandler) Handle(conn net.Conn) {
 		}
 
 		log.Logf("[relay] %s -> %s -> %s", conn.RemoteAddr(), conn.LocalAddr(), raddr)
-		cc, err = h.options.Chain.DialContext(ctx,
+
+		cc, err = h.options.Chain.DialContext(ip, ctx,
 			network, raddr,
 			RetryChainOption(h.options.Retries),
 			TimeoutChainOption(h.options.Timeout),

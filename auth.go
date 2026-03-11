@@ -2,7 +2,6 @@ package gost
 
 import (
 	"bufio"
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -17,13 +16,11 @@ import (
 // Authenticator is an interface for user authentication.
 type Authenticator interface {
 	Authenticate(user, password string) bool
-	InflowwAuthenticateContext(ctx context.Context, user, password string) bool
+	IFAuthenticate(ip net.IP, user, password string) bool
 }
 
-func (au *LocalAuthenticator) InflowwAuthenticateContext(ctx context.Context, user, password string) bool {
-	inboundIP := ctx.Value("InboundIP")
-	if inboundIP != nil {
-		ip := inboundIP.(net.IP)
+func (au *LocalAuthenticator) IFAuthenticate(ip net.IP, user, password string) bool {
+	if ip != nil {
 		if !ip.IsLoopback() && !ip.IsPrivate() {
 			expected := GeneratePass(ip.String(), user)
 			if expected == password {

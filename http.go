@@ -268,8 +268,8 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 			log.Logf("[http] %s -> %s : %s", conn.RemoteAddr(), conn.LocalAddr(), err)
 			continue
 		}
-
-		cc, err = route.Dial(host,
+		ip := GetIP(conn)
+		cc, err = route.Dial(ip, host,
 			TimeoutChainOption(h.options.Timeout),
 			HostsChainOption(h.options.Hosts),
 			ResolverChainOption(h.options.Resolver),
@@ -358,7 +358,8 @@ func (h *httpHandler) authenticate(conn net.Conn, req *http.Request, resp *http.
 		log.Logf("[http] %s -> %s : Authorization '%s' '%s'",
 			conn.RemoteAddr(), conn.LocalAddr(), u, p)
 	}
-	if h.options.Authenticator == nil || h.options.Authenticator.Authenticate(u, p) {
+	ip := GetIP(conn)
+	if h.options.Authenticator == nil || h.options.Authenticator.IFAuthenticate(ip, u, p) {
 		return true
 	}
 

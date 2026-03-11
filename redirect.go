@@ -53,8 +53,8 @@ func (h *tcpRedirectHandler) Handle(c net.Conn) {
 	defer conn.Close()
 
 	log.Logf("[red-tcp] %s -> %s", srcAddr, dstAddr)
-
-	cc, err := h.options.Chain.DialContext(context.Background(),
+	ip := GetIP(c)
+	cc, err := h.options.Chain.DialContext(ip, context.Background(),
 		"tcp", dstAddr.String(),
 		RetryChainOption(h.options.Retries),
 		TimeoutChainOption(h.options.Timeout),
@@ -134,8 +134,8 @@ func (h *udpRedirectHandler) Handle(conn net.Conn) {
 		log.Log("[red-udp] wrong connection type")
 		return
 	}
-
-	cc, err := h.options.Chain.DialContext(context.Background(),
+	ip := GetIP(conn)
+	cc, err := h.options.Chain.DialContext(ip, context.Background(),
 		"udp", raddr.String(),
 		RetryChainOption(h.options.Retries),
 		TimeoutChainOption(h.options.Timeout),

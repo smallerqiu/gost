@@ -168,8 +168,8 @@ func (selector *serverSelector) OnSelected(method uint8, conn net.Conn) (string,
 		if Debug {
 			log.Logf("[socks5] %s - %s: %s", conn.RemoteAddr(), conn.LocalAddr(), req.String())
 		}
-
-		if selector.Authenticator != nil && !selector.Authenticator.Authenticate(req.Username, req.Password) {
+		ip := GetIP(conn)
+		if selector.Authenticator != nil && !selector.Authenticator.IFAuthenticate(ip, req.Username, req.Password) {
 			resp := gosocks5.NewUserPassResponse(gosocks5.UserPassVer, gosocks5.Failure)
 			if err := resp.Write(conn); err != nil {
 				log.Logf("[socks5] %s - %s: %s", conn.RemoteAddr(), conn.LocalAddr(), err)
@@ -431,7 +431,7 @@ func (tr *socks5MuxBindTransporter) Dial(addr string, options ...DialOption) (co
 		if opts.Chain == nil {
 			conn, err = net.DialTimeout("tcp", addr, timeout)
 		} else {
-			conn, err = opts.Chain.Dial(addr)
+			conn, err = opts.Chain.Dial(nil, addr)
 		}
 		if err != nil {
 			return
@@ -923,6 +923,7 @@ func (h *socks5Handler) handleConnect(conn net.Conn, req *gosocks5.Request) {
 	var err error
 	var cc net.Conn
 	var route *Chain
+	ip := GetIP(conn)
 	for i := 0; i < retries; i++ {
 		route, err = h.options.Chain.selectRouteFor(host)
 		if err != nil {
@@ -940,7 +941,7 @@ func (h *socks5Handler) handleConnect(conn net.Conn, req *gosocks5.Request) {
 		fmt.Fprintf(&buf, "%s", host)
 		log.Log("[route]", buf.String())
 
-		cc, err = route.Dial(host,
+		cc, err = route.Dial(ip, host,
 			TimeoutChainOption(h.options.Timeout),
 			HostsChainOption(h.options.Hosts),
 			ResolverChainOption(h.options.Resolver),
@@ -1773,6 +1774,7 @@ func (h *socks4Handler) handleConnect(conn net.Conn, req *gosocks4.Request) {
 	var err error
 	var cc net.Conn
 	var route *Chain
+	ip := GetIP(conn)
 	for i := 0; i < retries; i++ {
 		route, err = h.options.Chain.selectRouteFor(addr)
 		if err != nil {
@@ -1790,7 +1792,7 @@ func (h *socks4Handler) handleConnect(conn net.Conn, req *gosocks4.Request) {
 		fmt.Fprintf(&buf, "%s", addr)
 		log.Log("[route]", buf.String())
 
-		cc, err = route.Dial(addr,
+		cc, err = route.Dial(ip, addr,
 			TimeoutChainOption(h.options.Timeout),
 			HostsChainOption(h.options.Hosts),
 			ResolverChainOption(h.options.Resolver),

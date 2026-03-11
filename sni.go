@@ -134,6 +134,7 @@ func (h *sniHandler) Handle(conn net.Conn) {
 
 	var cc net.Conn
 	var route *Chain
+	ip := GetIP(conn)
 	for i := 0; i < retries; i++ {
 		route, err = h.options.Chain.selectRouteFor(host)
 		if err != nil {
@@ -151,7 +152,7 @@ func (h *sniHandler) Handle(conn net.Conn) {
 		fmt.Fprintf(&buf, "%s", host)
 		log.Log("[route]", buf.String())
 
-		cc, err = route.Dial(host,
+		cc, err = route.Dial(ip, host,
 			TimeoutChainOption(h.options.Timeout),
 			HostsChainOption(h.options.Hosts),
 			ResolverChainOption(h.options.Resolver),

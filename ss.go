@@ -164,6 +164,7 @@ func (h *shadowHandler) Handle(conn net.Conn) {
 
 	var cc net.Conn
 	var route *Chain
+	ip := GetIP(conn)
 	for i := 0; i < retries; i++ {
 		route, err = h.options.Chain.selectRouteFor(host)
 		if err != nil {
@@ -180,8 +181,7 @@ func (h *shadowHandler) Handle(conn net.Conn) {
 		}
 		fmt.Fprintf(&buf, "%s", host)
 		log.Log("[route]", buf.String())
-
-		cc, err = route.Dial(host,
+		cc, err = route.Dial(ip, host,
 			TimeoutChainOption(h.options.Timeout),
 			HostsChainOption(h.options.Hosts),
 			ResolverChainOption(h.options.Resolver),
@@ -297,7 +297,8 @@ func (h *shadowUDPHandler) Handle(conn net.Conn) {
 	defer conn.Close()
 
 	var cc net.PacketConn
-	c, err := h.options.Chain.DialContext(context.Background(), "udp", "")
+	ip := GetIP(conn)
+	c, err := h.options.Chain.DialContext(ip, context.Background(), "udp", "")
 	if err != nil {
 		log.Logf("[ssu] %s: %s", conn.LocalAddr(), err)
 		return
