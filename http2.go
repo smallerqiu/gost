@@ -338,7 +338,7 @@ func (h *http2Handler) Handle(conn net.Conn) {
 		return
 	}
 
-	ip := GetIP(conn)
+	ip := getIP(conn)
 	h.roundTrip(ip, h2c.w, h2c.r)
 }
 
@@ -427,11 +427,11 @@ func (h *http2Handler) roundTrip(ip net.IP, w http.ResponseWriter, r *http.Reque
 		}
 		fmt.Fprintf(&buf, "%s", host)
 		log.Log("[route]", buf.String())
-
-		cc, err = route.Dial(ip, host,
+		cc, err = route.Dial(host,
 			TimeoutChainOption(h.options.Timeout),
 			HostsChainOption(h.options.Hosts),
 			ResolverChainOption(h.options.Resolver),
+			IPChainOption(ip),
 		)
 		if err == nil {
 			break

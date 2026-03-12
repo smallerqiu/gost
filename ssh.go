@@ -611,11 +611,12 @@ func (h *sshForwardHandler) directPortForwardChannel(ip net.IP, channel ssh.Chan
 		return
 	}
 
-	conn, err := h.options.Chain.Dial(ip, raddr,
+	conn, err := h.options.Chain.Dial(raddr,
 		RetryChainOption(h.options.Retries),
 		TimeoutChainOption(h.options.Timeout),
 		HostsChainOption(h.options.Hosts),
 		ResolverChainOption(h.options.Resolver),
+		IPChainOption(ip),
 	)
 	if err != nil {
 		log.Logf("[ssh-tcp] %s - %s : %s", h.options.Node.Addr, raddr, err)

@@ -168,7 +168,7 @@ func (selector *serverSelector) OnSelected(method uint8, conn net.Conn) (string,
 		if Debug {
 			log.Logf("[socks5] %s - %s: %s", conn.RemoteAddr(), conn.LocalAddr(), req.String())
 		}
-		ip := GetIP(conn)
+		ip := getIP(conn)
 		if selector.Authenticator != nil && !selector.Authenticator.IFAuthenticate(ip, req.Username, req.Password) {
 			resp := gosocks5.NewUserPassResponse(gosocks5.UserPassVer, gosocks5.Failure)
 			if err := resp.Write(conn); err != nil {
@@ -923,7 +923,7 @@ func (h *socks5Handler) handleConnect(conn net.Conn, req *gosocks5.Request) {
 	var err error
 	var cc net.Conn
 	var route *Chain
-	ip := GetIP(conn)
+	ip := getIP(conn)
 	for i := 0; i < retries; i++ {
 		route, err = h.options.Chain.selectRouteFor(host)
 		if err != nil {
@@ -941,10 +941,11 @@ func (h *socks5Handler) handleConnect(conn net.Conn, req *gosocks5.Request) {
 		fmt.Fprintf(&buf, "%s", host)
 		log.Log("[route]", buf.String())
 
-		cc, err = route.Dial(ip, host,
+		cc, err = route.Dial(host,
 			TimeoutChainOption(h.options.Timeout),
 			HostsChainOption(h.options.Hosts),
 			ResolverChainOption(h.options.Resolver),
+			IPChainOption(ip),
 		)
 		if err == nil {
 			break
@@ -1774,7 +1775,7 @@ func (h *socks4Handler) handleConnect(conn net.Conn, req *gosocks4.Request) {
 	var err error
 	var cc net.Conn
 	var route *Chain
-	ip := GetIP(conn)
+	ip := getIP(conn)
 	for i := 0; i < retries; i++ {
 		route, err = h.options.Chain.selectRouteFor(addr)
 		if err != nil {
@@ -1792,10 +1793,11 @@ func (h *socks4Handler) handleConnect(conn net.Conn, req *gosocks4.Request) {
 		fmt.Fprintf(&buf, "%s", addr)
 		log.Log("[route]", buf.String())
 
-		cc, err = route.Dial(ip, addr,
+		cc, err = route.Dial(addr,
 			TimeoutChainOption(h.options.Timeout),
 			HostsChainOption(h.options.Hosts),
 			ResolverChainOption(h.options.Resolver),
+			IPChainOption(ip),
 		)
 		if err == nil {
 			break

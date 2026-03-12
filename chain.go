@@ -9,13 +9,11 @@ import (
 	"time"
 
 	"github.com/go-log/log"
-	"golang.org/x/crypto/ssh"
 )
 
 var (
 	// ErrEmptyChain is an error that implies the chain is empty.
 	ErrEmptyChain = errors.New("empty chain")
-	localAddrKey  = "localAddr"
 )
 
 // Chain is a proxy chain that holds a list of proxy node groups.
@@ -111,29 +109,14 @@ func (c *Chain) IsEmpty() bool {
 	return c == nil || len(c.nodeGroups) == 0
 }
 
-func GetIP(conn net.Conn) (ip net.IP) {
-	IP := conn.LocalAddr().(*net.TCPAddr).IP
-	if IP != nil && !IP.IsPrivate() && !IP.IsLoopback() {
-		return IP
-	}
-	return nil
-}
-func GetSshIP(conn ssh.ConnMetadata) (ip net.IP) {
-	IP := conn.LocalAddr().(*net.TCPAddr).IP
-	if IP != nil && !IP.IsPrivate() && !IP.IsLoopback() {
-		return IP
-	}
-	return nil
-}
-
 // Dial connects to the target TCP address addr through the chain.
 // Deprecated: use DialContext instead.
-func (c *Chain) Dial(ip net.IP, address string, opts ...ChainOption) (conn net.Conn, err error) {
-	return c.DialContext(ip, context.Background(), "tcp", address, opts...)
+func (c *Chain) Dial(address string, opts ...ChainOption) (conn net.Conn, err error) {
+	return c.DialContext(context.Background(), "tcp", address, opts...)
 }
 
 // DialContext connects to the address on the named network using the provided context.
-func (c *Chain) DialContext(ip net.IP, ctx context.Context, network, address string, opts ...ChainOption) (conn net.Conn, err error) {
+func (c *Chain) DialContext(ctx context.Context, network, address string, opts ...ChainOption) (conn net.Conn, err error) {
 	options := &ChainOptions{}
 	for _, opt := range opts {
 		opt(options)
@@ -148,7 +131,7 @@ func (c *Chain) DialContext(ip net.IP, ctx context.Context, network, address str
 	}
 
 	for i := 0; i < retries; i++ {
-		conn, err = c.dialWithOptions(ip, ctx, network, address, options)
+		conn, err = c.dialWithOptions(ctx, network, address, options)
 		if err == nil {
 			break
 		}
@@ -156,7 +139,7 @@ func (c *Chain) DialContext(ip net.IP, ctx context.Context, network, address str
 	return
 }
 
-func (c *Chain) dialWithOptions(ip net.IP, ctx context.Context, network, address string, options *ChainOptions) (net.Conn, error) {
+func (c *Chain) dialWithOptions(ctx context.Context, network, address string, options *ChainOptions) (net.Conn, error) {
 	if options == nil {
 		options = &ChainOptions{}
 	}
@@ -215,24 +198,8 @@ func (c *Chain) dialWithOptions(ip net.IP, ctx context.Context, network, address
 			}
 		default:
 		}
-		var localAddr net.Addr
-		// ip := cn.LocalAddr().(*net.TCPAddr).IP
-		// ctx := context.WithValue(context.Background(), localAddrKey, ip)
-		// if v := ctx.Value(localAddrKey); v != nil {
-		// 	if ip, ok := v.(net.IP); ok {
-		// 		localAddr = &net.TCPAddr{
-		// 			IP:   ip,
-		// 			Port: 0,
-		// 		}
-		// 	}
-		// }
-		if ip != nil {
-			localAddr = &net.TCPAddr{
-				IP:   ip,
-				Port: 0,
-			}
-		}
 
+		localAddr := getLocalAddr(ctx)
 		d := &net.Dialer{
 			Timeout:   timeout,
 			Control:   controlFunction,
@@ -407,6 +374,7 @@ type ChainOptions struct {
 	Hosts    *Hosts
 	Resolver Resolver
 	Mark     int
+	IP       net.IP
 }
 
 // ChainOption allows a common way to set chain options.
@@ -437,5 +405,11 @@ func HostsChainOption(hosts *Hosts) ChainOption {
 func ResolverChainOption(resolver Resolver) ChainOption {
 	return func(opts *ChainOptions) {
 		opts.Resolver = resolver
+	}
+}
+
+func IPChainOption(ip net.IP) ChainOption {
+	return func(opts *ChainOptions) {
+		opts.IP = ip
 	}
 }

@@ -162,14 +162,14 @@ func (h *tunHandler) Handle(conn net.Conn) {
 	}
 
 	var tempDelay time.Duration
-	ip := GetIP(conn)
+	ip := getIP(conn)
 	for {
 		err := func() error {
 			var err error
 			var pc net.PacketConn
 			// fake tcp mode will be ignored when the client specifies a chain.
 			if raddr != nil && !h.options.Chain.IsEmpty() {
-				cc, err := h.options.Chain.DialContext(ip, context.Background(), "udp", raddr.String())
+				cc, err := h.options.Chain.DialContext(context.Background(), "udp", raddr.String(), IPChainOption(ip))
 				if err != nil {
 					return err
 				}
@@ -552,14 +552,14 @@ func (h *tapHandler) Handle(conn net.Conn) {
 		}
 	}
 	var tempDelay time.Duration
-	ip := GetIP(conn)
+	ip := getIP(conn)
 	for {
 		err := func() error {
 			var err error
 			var pc net.PacketConn
 			// fake tcp mode will be ignored when the client specifies a chain.
 			if raddr != nil && !h.options.Chain.IsEmpty() {
-				cc, err := h.options.Chain.DialContext(ip, context.Background(), "udp", raddr.String())
+				cc, err := h.options.Chain.DialContext(context.Background(), "udp", raddr.String(), IPChainOption(ip))
 				if err != nil {
 					return err
 				}
