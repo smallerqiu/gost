@@ -27,7 +27,7 @@ func (tr *vsockTransporter) Dial(addr string, options ...DialOption) (net.Conn, 
 		}
 		return vsock.Dial(vAddr.ContextID, vAddr.Port, nil)
 	}
-	return opts.Chain.Dial(nil, addr)
+	return opts.Chain.Dial(addr)
 }
 
 func parseUint32(s string) (uint32, error) {

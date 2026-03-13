@@ -33,7 +33,9 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
+	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect
+	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/coreos/go-iptables v0.8.0 // indirect
 	github.com/dchest/siphash v1.2.3 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
@@ -42,6 +44,7 @@ require (
 	github.com/klauspost/reedsolomon v1.13.2 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pquerna/otp v1.5.0 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/xtaci/lossyconn v1.0.0 // indirect

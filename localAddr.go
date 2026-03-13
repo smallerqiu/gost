@@ -17,13 +17,6 @@ func getIP(conn net.Conn) (ip net.IP) {
 	return nil
 }
 
-func getContext1(ip net.IP) (ctx context.Context) {
-	ctx = context.Background()
-	if ip != nil {
-		return context.WithValue(ctx, localAddrKey, ip)
-	}
-	return
-}
 func getContext(conn net.Conn, parentCtx context.Context) (ctx context.Context) {
 	IP := getIP(conn)
 	if IP != nil {
@@ -48,8 +41,11 @@ func GetSshIP(conn ssh.ConnMetadata) (ip net.IP) {
 	return nil
 }
 
-func getLocalAddr(ctx context.Context) (addr net.Addr) {
+func getLocalAddr(ctx context.Context, options *ChainOptions) (addr net.Addr) {
 	ip := GetIP(ctx)
+	if ip == nil && options != nil {
+		ip = options.IP
+	}
 	if ip != nil {
 		addr = &net.TCPAddr{
 			IP:   ip,

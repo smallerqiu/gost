@@ -199,7 +199,7 @@ func (c *Chain) dialWithOptions(ctx context.Context, network, address string, op
 		default:
 		}
 
-		localAddr := getLocalAddr(ctx)
+		localAddr := getLocalAddr(ctx, options)
 		d := &net.Dialer{
 			Timeout:   timeout,
 			Control:   controlFunction,

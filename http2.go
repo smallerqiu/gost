@@ -142,7 +142,7 @@ func (tr *http2Transporter) Dial(addr string, options ...DialOption) (net.Conn, 
 	if !ok {
 		// NOTE: There is no real connection to the HTTP2 server at this moment.
 		// So we try to connect to the server to check the server health.
-		conn, err := opts.Chain.Dial(nil, addr)
+		conn, err := opts.Chain.Dial(addr)
 		if err != nil {
 			log.Log("http2 dial:", addr, err)
 			return nil, err
@@ -156,7 +156,7 @@ func (tr *http2Transporter) Dial(addr string, options ...DialOption) (net.Conn, 
 		transport := http2.Transport{
 			TLSClientConfig: tr.tlsConfig,
 			DialTLS: func(network, adr string, cfg *tls.Config) (net.Conn, error) {
-				conn, err := opts.Chain.Dial(nil, adr)
+				conn, err := opts.Chain.Dial(adr)
 				if err != nil {
 					return nil, err
 				}
@@ -234,7 +234,7 @@ func (tr *h2Transporter) Dial(addr string, options ...DialOption) (net.Conn, err
 		transport := http2.Transport{
 			TLSClientConfig: tr.tlsConfig,
 			DialTLS: func(network, adr string, cfg *tls.Config) (net.Conn, error) {
-				conn, err := opts.Chain.Dial(nil, addr)
+				conn, err := opts.Chain.Dial(addr)
 				if err != nil {
 					return nil, err
 				}

@@ -282,7 +282,7 @@ func (r *resolver) Resolve(host string) (ips []net.IP, err error) {
 
 	ctx := context.Background()
 	for _, ns := range r.copyServers() {
-		ips, err = r.resolve(ip, ctx, ns.exchanger, host)
+		ips, err = r.resolve(ctx, ns.exchanger, host)
 		if err != nil {
 			log.Logf("[resolver] %s via %s : %s", host, ns.String(), err)
 			continue
@@ -299,7 +299,7 @@ func (r *resolver) Resolve(host string) (ips []net.IP, err error) {
 	return
 }
 
-func (r *resolver) resolve(ip net.IP, ctx context.Context, ex Exchanger, host string) (ips []net.IP, err error) {
+func (r *resolver) resolve(ctx context.Context, ex Exchanger, host string) (ips []net.IP, err error) {
 	if ex == nil {
 		return
 	}
@@ -309,36 +309,36 @@ func (r *resolver) resolve(ip net.IP, ctx context.Context, ex Exchanger, host st
 	r.mux.RUnlock()
 
 	if prefer == "ipv6" { // prefer ipv6
-		if ips, err = r.resolve6(ip, ctx, ex, host); len(ips) > 0 {
+		if ips, err = r.resolve6(ctx, ex, host); len(ips) > 0 {
 			return
 		}
-		return r.resolve4(ip, ctx, ex, host)
+		return r.resolve4(ctx, ex, host)
 	}
 
-	if ips, err = r.resolve4(ip, ctx, ex, host); len(ips) > 0 {
+	if ips, err = r.resolve4(ctx, ex, host); len(ips) > 0 {
 		return
 	}
-	return r.resolve6(ip, ctx, ex, host)
+	return r.resolve6(ctx, ex, host)
 }
 
-func (r *resolver) resolve4(ip net.IP, ctx context.Context, ex Exchanger, host string) (ips []net.IP, err error) {
+func (r *resolver) resolve4(ctx context.Context, ex Exchanger, host string) (ips []net.IP, err error) {
 	mq := dns.Msg{}
 	mq.SetQuestion(dns.Fqdn(host), dns.TypeA)
-	return r.resolveIPs(ip, ctx, ex, &mq)
+	return r.resolveIPs(ctx, ex, &mq)
 }
 
-func (r *resolver) resolve6(ip net.IP, ctx context.Context, ex Exchanger, host string) (ips []net.IP, err error) {
+func (r *resolver) resolve6(ctx context.Context, ex Exchanger, host string) (ips []net.IP, err error) {
 	mq := dns.Msg{}
 	mq.SetQuestion(dns.Fqdn(host), dns.TypeAAAA)
-	return r.resolveIPs(ip, ctx, ex, &mq)
+	return r.resolveIPs(ctx, ex, &mq)
 }
 
-func (r *resolver) resolveIPs(ip net.IP, ctx context.Context, ex Exchanger, mq *dns.Msg) (ips []net.IP, err error) {
+func (r *resolver) resolveIPs(ctx context.Context, ex Exchanger, mq *dns.Msg) (ips []net.IP, err error) {
 	key := newResolverCacheKey(&mq.Question[0])
 	mr := r.cache.loadCache(key)
 	if mr == nil {
 		r.addSubnetOpt(mq)
-		mr, err = r.exchangeMsg(ip, ctx, ex, mq)
+		mr, err = r.exchangeMsg(ctx, ex, mq)
 		if err != nil {
 			return
 		}
@@ -753,9 +753,9 @@ func NewDNSTCPExchanger(addr string, opts ...ExchangerOption) Exchanger {
 	}
 }
 
-func (ex *dnsTCPExchanger) Exchange(ip net.IP, ctx context.Context, query []byte) ([]byte, error) {
+func (ex *dnsTCPExchanger) Exchange(ctx context.Context, query []byte) ([]byte, error) {
 	t := time.Now()
-	c, err := ex.options.chain.DialContext(ip, ctx,
+	c, err := ex.options.chain.DialContext(ctx,
 		"tcp", ex.addr,
 		TimeoutChainOption(ex.options.timeout),
 	)
@@ -810,8 +810,8 @@ func NewDoTExchanger(addr string, tlsConfig *tls.Config, opts ...ExchangerOption
 	}
 }
 
-func (ex *dotExchanger) dial(ip net.IP, ctx context.Context, network, address string) (conn net.Conn, err error) {
-	conn, err = ex.options.chain.DialContext(ip, ctx,
+func (ex *dotExchanger) dial(ctx context.Context, network, address string) (conn net.Conn, err error) {
+	conn, err = ex.options.chain.DialContext(ctx,
 		network, address,
 		TimeoutChainOption(ex.options.timeout),
 	)
@@ -823,9 +823,9 @@ func (ex *dotExchanger) dial(ip net.IP, ctx context.Context, network, address st
 	return
 }
 
-func (ex *dotExchanger) Exchange(ip net.IP, ctx context.Context, query []byte) ([]byte, error) {
+func (ex *dotExchanger) Exchange(ctx context.Context, query []byte) ([]byte, error) {
 	t := time.Now()
-	c, err := ex.dial(ip, ctx, "tcp", ex.addr)
+	c, err := ex.dial(ctx, "tcp", ex.addr)
 	if err != nil {
 		return nil, err
 	}
@@ -881,9 +881,8 @@ func NewDoHExchanger(urlStr *url.URL, tlsConfig *tls.Config, opts ...ExchangerOp
 	return ex
 }
 
-func (ex *dohExchanger) dialContext(ip net.IP, ctx context.Context, network, address string) (net.Conn, error) {
-	// todo::
-	return ex.options.chain.DialContext(ip, ctx,
+func (ex *dohExchanger) dialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	return ex.options.chain.DialContext(ctx,
 		network, address,
 		TimeoutChainOption(ex.options.timeout),
 	)

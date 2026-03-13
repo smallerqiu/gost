@@ -8,9 +8,6 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"strings"
-
-	_ "net/http/pprof"
 
 	"github.com/ginuerzh/gost"
 	"github.com/go-log/log"
@@ -24,11 +21,6 @@ var (
 )
 
 func init() {
-
-	if len(os.Args) == 4 && strings.ToLower(os.Args[1]) == "genpass" {
-		fmt.Println(gost.GeneratePass(os.Args[2], os.Args[3]))
-		os.Exit(0)
-	}
 
 	gost.SetLogger(&gost.LogLogger{})
 
@@ -92,6 +84,8 @@ func main() {
 	}
 
 	gost.DefaultTLSConfig = tlsConfig
+
+	gost.LoadAuthConfig()
 
 	if err := start(); err != nil {
 		log.Log(err)
