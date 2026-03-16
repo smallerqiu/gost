@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -12,8 +13,15 @@ import (
 	"github.com/go-log/log"
 )
 
-// 25 端口 465 和 587
-var mailPorts = []string{"25", "465", "587"}
+// 25	SMTP 服务器发邮件
+// 465 SMTP SSL 客户端发邮件
+// 587 SMTP Submission 客户端发邮件
+// 143 IMAP 收邮件
+// 993 IMAP SSL 收邮件
+// 110 POP3 收邮件
+// 995 POP3 SSL 收邮件
+
+var mailPorts = []string{"25", "465", "587", "143", "993", "110", "995", "2525"}
 
 type EmailACL struct {
 	emails  map[string]struct{}
@@ -80,6 +88,32 @@ func CheckMailFrom(email string) error {
 	if !IsEmailAllowed(email) {
 		log.Logf("smtp blocked email: %s", email)
 		return fmt.Errorf("550 sender not allowed")
+	}
+	return nil
+}
+
+func CheckMailTo(address string) error {
+	if address == "" {
+		return nil
+	}
+	_, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return err
+	}
+	if !slices.Contains(mailPorts, port) {
+		return nil
+	}
+	allowed := false
+	for _, h := range config.Auth.EmailWhiteList {
+		if strings.EqualFold(h, address) || strings.HasSuffix(address, h) {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		// 记录尝试连接非法 SMTP
+		fmt.Printf("SMTP access blocked to %s", address)
+		return fmt.Errorf("SMTP to this destination is forbidden")
 	}
 	return nil
 }

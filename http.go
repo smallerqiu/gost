@@ -239,7 +239,7 @@ func (h *httpHandler) handleRequest(conn net.Conn, req *http.Request) {
 	var err error
 	var cc net.Conn
 	var route *Chain
-	ip := getIP(conn)
+	ip := GetIP(conn)
 	for i := 0; i < retries; i++ {
 		route, err = h.options.Chain.selectRouteFor(host)
 		if err != nil {
@@ -359,7 +359,7 @@ func (h *httpHandler) authenticate(conn net.Conn, req *http.Request, resp *http.
 		log.Logf("[http] %s -> %s : Authorization '%s' '%s'",
 			conn.RemoteAddr(), conn.LocalAddr(), u, p)
 	}
-	ip := getIP(conn)
+	ip := GetIP(conn)
 	if h.options.Authenticator == nil || h.options.Authenticator.IFAuthenticate(ip, u, p) {
 		return true
 	}

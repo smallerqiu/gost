@@ -134,7 +134,7 @@ func (h *sniHandler) Handle(conn net.Conn) {
 
 	var cc net.Conn
 	var route *Chain
-	ip := getIP(conn)
+	ip := GetIP(conn)
 	for i := 0; i < retries; i++ {
 		route, err = h.options.Chain.selectRouteFor(host)
 		if err != nil {

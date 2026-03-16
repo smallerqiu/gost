@@ -165,7 +165,7 @@ func (h *relayHandler) Handle(conn net.Conn) {
 		Version: relay.Version1,
 		Status:  relay.StatusOK,
 	}
-	ip := getIP(conn)
+	ip := GetIP(conn)
 	if h.options.Authenticator != nil && !h.options.Authenticator.IFAuthenticate(ip, user, pass) {
 		resp.Status = relay.StatusUnauthorized
 		resp.WriteTo(conn)

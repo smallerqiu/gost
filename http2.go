@@ -338,7 +338,7 @@ func (h *http2Handler) Handle(conn net.Conn) {
 		return
 	}
 
-	ip := getIP(conn)
+	ip := GetIP(conn)
 	h.roundTrip(ip, h2c.w, h2c.r)
 }
 

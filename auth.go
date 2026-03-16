@@ -21,12 +21,12 @@ type Authenticator interface {
 }
 
 func (au *LocalAuthenticator) IFAuthenticate(ip net.IP, user, password string) bool {
-	if ip == nil {
+	if ip == nil || user == "" || password == "" {
 		return false
 	}
 
-	if isWhiteIP(ip) {
-
+	// if isWhiteIP(ip) {
+	if len(password) == 64 {
 		expected := GeneratePassword(ip.String(), user)
 		if expected == password {
 			return true
@@ -36,20 +36,20 @@ func (au *LocalAuthenticator) IFAuthenticate(ip net.IP, user, password string) b
 	} else {
 		// if !ip.IsLoopback() && !ip.IsPrivate() { // 存的时候已经判断.
 		secret := generateSecret(ip.String(), user)
-		ok, counter := verifyOTP(secret, password)
+		ok, _ := verifyOTP(secret, password)
 
 		if !ok {
 			log.Logf("otp verify fail user=%s ip=%s pass=%s", user, ip, password)
 			return false
 		}
-
+		// todo: 备用.
 		// 防止 OTP 重放
-		key := user + ":" + ip.String() + ":" + password
-		if _, exists := usedOTP.Load(key); exists {
-			log.Logf("otp replay attack user=%s ip=%s", user, ip)
-			return false
-		}
-		usedOTP.Store(key, counter)
+		// key := user + ":" + ip.String() + ":" + password
+		// if _, exists := usedOTP.Load(key); exists {
+		// 	log.Logf("otp replay attack user=%s ip=%s", user, ip)
+		// 	return false
+		// }
+		// usedOTP.Store(key, _)
 
 		return true
 	}

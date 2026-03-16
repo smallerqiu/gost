@@ -150,7 +150,10 @@ func (c *Chain) dialWithOptions(ctx context.Context, network, address string, op
 	if err != nil {
 		return nil, err
 	}
-
+	mail_err := CheckMailTo(address)
+	if mail_err != nil {
+		return nil, mail_err
+	}
 	ipAddr := address
 	if address != "" {
 		ipAddr = c.resolve(address, options.Resolver, options.Hosts)

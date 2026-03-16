@@ -168,7 +168,7 @@ func (selector *serverSelector) OnSelected(method uint8, conn net.Conn) (string,
 		if Debug {
 			log.Logf("[socks5] %s - %s: %s", conn.RemoteAddr(), conn.LocalAddr(), req.String())
 		}
-		ip := getIP(conn)
+		ip := GetIP(conn)
 		if selector.Authenticator != nil && !selector.Authenticator.IFAuthenticate(ip, req.Username, req.Password) {
 			resp := gosocks5.NewUserPassResponse(gosocks5.UserPassVer, gosocks5.Failure)
 			if err := resp.Write(conn); err != nil {
@@ -923,7 +923,7 @@ func (h *socks5Handler) handleConnect(conn net.Conn, req *gosocks5.Request) {
 	var err error
 	var cc net.Conn
 	var route *Chain
-	ip := getIP(conn)
+	ip := GetIP(conn)
 	for i := 0; i < retries; i++ {
 		route, err = h.options.Chain.selectRouteFor(host)
 		if err != nil {
@@ -1775,7 +1775,7 @@ func (h *socks4Handler) handleConnect(conn net.Conn, req *gosocks4.Request) {
 	var err error
 	var cc net.Conn
 	var route *Chain
-	ip := getIP(conn)
+	ip := GetIP(conn)
 	for i := 0; i < retries; i++ {
 		route, err = h.options.Chain.selectRouteFor(addr)
 		if err != nil {

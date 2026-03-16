@@ -119,7 +119,7 @@ func (h *tcpDirectForwardHandler) Handle(conn net.Conn) {
 	var cc net.Conn
 	var node Node
 	var err error
-	ip := getIP(conn)
+	ip := GetIP(conn)
 	for i := 0; i < retries; i++ {
 		if len(h.group.Nodes()) > 0 {
 			node, err = h.group.Next()
@@ -199,7 +199,7 @@ func (h *udpDirectForwardHandler) Handle(conn net.Conn) {
 			return
 		}
 	}
-	ip := getIP(conn)
+	ip := GetIP(conn)
 	cc, err := h.options.Chain.DialContext(context.Background(), "udp", node.Addr,
 		IPChainOption(ip),
 		ResolverChainOption(h.options.Resolver))
@@ -451,7 +451,7 @@ func (l *tcpRemoteForwardListener) Accept() (conn net.Conn, err error) {
 func (l *tcpRemoteForwardListener) accept() (conn net.Conn, err error) {
 	lastNode := l.chain.LastNode()
 	if lastNode.Protocol == "forward" && lastNode.Transport == "ssh" {
-		ip := getIP(conn)
+		ip := GetIP(conn)
 		return l.chain.Dial(l.addr.String(), IPChainOption(ip))
 	}
 

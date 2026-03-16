@@ -162,7 +162,7 @@ func (h *tunHandler) Handle(conn net.Conn) {
 	}
 
 	var tempDelay time.Duration
-	ip := getIP(conn)
+	ip := GetIP(conn)
 	for {
 		err := func() error {
 			var err error
@@ -552,7 +552,7 @@ func (h *tapHandler) Handle(conn net.Conn) {
 		}
 	}
 	var tempDelay time.Duration
-	ip := getIP(conn)
+	ip := GetIP(conn)
 	for {
 		err := func() error {
 			var err error

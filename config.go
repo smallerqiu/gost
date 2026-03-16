@@ -20,9 +20,9 @@ var config Config
 
 func LoadAuthConfig() {
 
-	_, err := toml.DecodeFile("auth.toml", &config)
+	_, err := toml.DecodeFile("gost.toml", &config)
 	if err != nil {
-		log.Log("not found auth.toml", err)
+		log.Log("not found gost.toml", err)
 	}
 
 	LoadIPWhiteList(config.Auth.IPWhiteList)

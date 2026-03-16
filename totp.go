@@ -14,13 +14,9 @@ func VerifyOTP(secret, pass string) bool {
 	now := time.Now().UTC().Unix()
 	skew := config.Auth.DynamicSkew
 	period := config.Auth.DynamicPeriod
-
 	for i := -skew; i <= skew; i++ {
-
 		t := (now / period) + int64(i)
-
 		code := generateTOTP(secret, t)
-
 		if code == pass {
 			return true
 		}
@@ -51,7 +47,6 @@ func verifyOTP(secret, pass string) (bool, int64) {
 	now := time.Now().UTC().Unix()
 	skew := config.Auth.DynamicSkew
 	period := config.Auth.DynamicPeriod
-
 	for i := -skew; i <= skew; i++ {
 		counter := (now / period) + int64(i)
 		code := generateTOTP(secret, counter)

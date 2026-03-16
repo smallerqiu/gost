@@ -9,7 +9,7 @@ import (
 
 var localAddrKey = "localAddr"
 
-func getIP(conn net.Conn) (ip net.IP) {
+func GetIP(conn net.Conn) (ip net.IP) {
 	IP := conn.LocalAddr().(*net.TCPAddr).IP
 	if IP != nil && !IP.IsPrivate() && !IP.IsLoopback() {
 		return IP
@@ -18,14 +18,14 @@ func getIP(conn net.Conn) (ip net.IP) {
 }
 
 func getContext(conn net.Conn, parentCtx context.Context) (ctx context.Context) {
-	IP := getIP(conn)
+	IP := GetIP(conn)
 	if IP != nil {
 		return context.WithValue(parentCtx, localAddrKey, IP)
 	}
 	return parentCtx
 }
 
-func GetIP(ctx context.Context) (ip net.IP) {
+func getIP(ctx context.Context) (ip net.IP) {
 	if v := ctx.Value(localAddrKey); v != nil {
 		if ip, ok := v.(net.IP); ok && !ip.IsPrivate() && !ip.IsLoopback() {
 			return ip
@@ -42,7 +42,7 @@ func GetSshIP(conn ssh.ConnMetadata) (ip net.IP) {
 }
 
 func getLocalAddr(ctx context.Context, options *ChainOptions) (addr net.Addr) {
-	ip := GetIP(ctx)
+	ip := getIP(ctx)
 	if ip == nil && options != nil {
 		ip = options.IP
 	}
