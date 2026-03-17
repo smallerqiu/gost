@@ -56,7 +56,7 @@ func (c *relayConnector) ConnectContext(ctx context.Context, conn net.Conn, netw
 		Version: relay.Version1,
 	}
 	if udp {
-		req.Flags |= relay.FUDP
+		req.Cmd |= relay.CmdType(relay.FUDP)
 	}
 
 	if c.user != nil {
@@ -74,7 +74,7 @@ func (c *relayConnector) ConnectContext(ctx context.Context, conn net.Conn, netw
 		}
 
 		if nport > 0 {
-			var atype uint8
+			var atype relay.AddrType
 			ip := net.ParseIP(host)
 			if ip == nil {
 				atype = relay.AddrDomain
@@ -165,7 +165,8 @@ func (h *relayHandler) Handle(conn net.Conn) {
 		Version: relay.Version1,
 		Status:  relay.StatusOK,
 	}
-	if h.options.Authenticator != nil && !h.options.Authenticator.Authenticate(user, pass) {
+	ip := GetIP(conn)
+	if h.options.Authenticator != nil && !h.options.Authenticator.IFAuthenticate(ip, user, pass) {
 		resp.Status = relay.StatusUnauthorized
 		resp.WriteTo(conn)
 		log.Logf("[relay] %s -> %s : %s unauthorized", conn.RemoteAddr(), conn.LocalAddr(), user)
@@ -190,7 +191,7 @@ func (h *relayHandler) Handle(conn net.Conn) {
 		}
 	}
 
-	udp := (req.Flags & relay.FUDP) == relay.FUDP
+	udp := (req.Cmd & relay.FUDP) == relay.FUDP
 	retries := 1
 	if h.options.Chain != nil && h.options.Chain.Retries > 0 {
 		retries = h.options.Chain.Retries
@@ -228,10 +229,12 @@ func (h *relayHandler) Handle(conn net.Conn) {
 		}
 
 		log.Logf("[relay] %s -> %s -> %s", conn.RemoteAddr(), conn.LocalAddr(), raddr)
+
 		cc, err = h.options.Chain.DialContext(ctx,
 			network, raddr,
 			RetryChainOption(h.options.Retries),
 			TimeoutChainOption(h.options.Timeout),
+			IPChainOption(ip),
 		)
 		if err != nil {
 			log.Logf("[relay] %s -> %s : %s", conn.RemoteAddr(), raddr, err)

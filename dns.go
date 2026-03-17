@@ -82,7 +82,8 @@ func (h *dnsHandler) Handle(conn net.Conn) {
 	if resolver == nil {
 		resolver = defaultResolver
 	}
-	reply, err := resolver.Exchange(context.Background(), b[:n])
+	ctx := getContext(conn, context.Background())
+	reply, err := resolver.Exchange(ctx, b[:n])
 	if err != nil {
 		log.Logf("[dns] %s - %s exchange: %v", conn.RemoteAddr(), conn.LocalAddr(), err)
 		return

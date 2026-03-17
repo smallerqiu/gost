@@ -9,8 +9,6 @@ import (
 	"os"
 	"runtime"
 
-	_ "net/http/pprof"
-
 	"github.com/ginuerzh/gost"
 	"github.com/go-log/log"
 )
@@ -23,6 +21,7 @@ var (
 )
 
 func init() {
+
 	gost.SetLogger(&gost.LogLogger{})
 
 	var (
@@ -85,6 +84,8 @@ func main() {
 	}
 
 	gost.DefaultTLSConfig = tlsConfig
+
+	gost.LoadAuthConfig()
 
 	if err := start(); err != nil {
 		log.Log(err)

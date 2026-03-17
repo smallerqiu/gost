@@ -150,7 +150,10 @@ func (c *Chain) dialWithOptions(ctx context.Context, network, address string, op
 	if err != nil {
 		return nil, err
 	}
-
+	mail_err := CheckMailTo(address)
+	if mail_err != nil {
+		return nil, mail_err
+	}
 	ipAddr := address
 	if address != "" {
 		ipAddr = c.resolve(address, options.Resolver, options.Hosts)
@@ -198,10 +201,12 @@ func (c *Chain) dialWithOptions(ctx context.Context, network, address string, op
 			}
 		default:
 		}
+
+		localAddr := getLocalAddr(ctx, options)
 		d := &net.Dialer{
-			Timeout: timeout,
-			Control: controlFunction,
-			// LocalAddr: laddr, // TODO: optional local address
+			Timeout:   timeout,
+			Control:   controlFunction,
+			LocalAddr: localAddr,
 		}
 		return d.DialContext(ctx, network, ipAddr)
 	}
@@ -372,6 +377,7 @@ type ChainOptions struct {
 	Hosts    *Hosts
 	Resolver Resolver
 	Mark     int
+	IP       net.IP
 }
 
 // ChainOption allows a common way to set chain options.
@@ -402,5 +408,11 @@ func HostsChainOption(hosts *Hosts) ChainOption {
 func ResolverChainOption(resolver Resolver) ChainOption {
 	return func(opts *ChainOptions) {
 		opts.Resolver = resolver
+	}
+}
+
+func IPChainOption(ip net.IP) ChainOption {
+	return func(opts *ChainOptions) {
+		opts.IP = ip
 	}
 }

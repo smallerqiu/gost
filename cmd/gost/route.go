@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -66,7 +65,6 @@ func (r *route) parseChain() (*gost.Chain, error) {
 					FailTimeout: nodes[0].GetDuration("fail_timeout"),
 				},
 				&gost.InvalidFilter{},
-				gost.NewFastestFilter(0, nodes[0].GetInt("fastest_count")),
 			),
 			gost.WithStrategy(gost.NewStrategy(nodes[0].Get("strategy"))),
 		)
@@ -206,26 +204,6 @@ func parseChainNode(ns string) (nodes []gost.Node, err error) {
 		} else {
 			tr = gost.SSHTunnelTransporter()
 		}
-	case "quic":
-		config := &gost.QUICConfig{
-			TLSConfig:   tlsCfg,
-			KeepAlive:   node.GetBool("keepalive"),
-			Timeout:     timeout,
-			IdleTimeout: node.GetDuration("idle"),
-		}
-		if config.KeepAlive {
-			config.KeepAlivePeriod = node.GetDuration("ttl")
-			if config.KeepAlivePeriod == 0 {
-				config.KeepAlivePeriod = 10 * time.Second
-			}
-		}
-
-		if cipher := node.Get("cipher"); cipher != "" {
-			sum := sha256.Sum256([]byte(cipher))
-			config.Key = sum[:]
-		}
-
-		tr = gost.QUICTransporter(config)
 	case "http2":
 		tr = gost.HTTP2Transporter(tlsCfg)
 	case "h2":
@@ -242,8 +220,6 @@ func parseChainNode(ns string) (nodes []gost.Node, err error) {
 		tr = gost.FakeTCPTransporter()
 	case "udp":
 		tr = gost.UDPTransporter()
-	case "vsock":
-		tr = gost.VSOCKTransporter()
 	default:
 		tr = gost.TCPTransporter()
 	}
@@ -460,25 +436,6 @@ func (r *route) GenRouters() ([]router, error) {
 			} else {
 				ln, err = gost.SSHTunnelListener(node.Addr, config)
 			}
-		case "quic":
-			config := &gost.QUICConfig{
-				TLSConfig:   tlsCfg,
-				KeepAlive:   node.GetBool("keepalive"),
-				Timeout:     timeout,
-				IdleTimeout: node.GetDuration("idle"),
-			}
-			if config.KeepAlive {
-				config.KeepAlivePeriod = node.GetDuration("ttl")
-				if config.KeepAlivePeriod == 0 {
-					config.KeepAlivePeriod = 10 * time.Second
-				}
-			}
-			if cipher := node.Get("cipher"); cipher != "" {
-				sum := sha256.Sum256([]byte(cipher))
-				config.Key = sum[:]
-			}
-
-			ln, err = gost.QUICListener(node.Addr, config)
 		case "http2":
 			ln, err = gost.HTTP2Listener(node.Addr, tlsCfg)
 		case "h2":
@@ -492,8 +449,6 @@ func (r *route) GenRouters() ([]router, error) {
 				chain.Nodes()[len(chain.Nodes())-1].Client.Transporter = gost.SSHForwardTransporter()
 			}
 			ln, err = gost.TCPListener(node.Addr)
-		case "vsock":
-			ln, err = gost.VSOCKListener(node.Addr)
 		case "udp":
 			ln, err = gost.UDPListener(node.Addr, &gost.UDPListenConfig{
 				TTL:       ttl,

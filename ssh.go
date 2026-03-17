@@ -583,9 +583,9 @@ func (h *sshForwardHandler) handleForward(conn ssh.Conn, chans <-chan ssh.NewCha
 				if p.Host1 == "<nil>" {
 					p.Host1 = ""
 				}
-
+				ip := GetSshIP(conn)
 				go ssh.DiscardRequests(requests)
-				go h.directPortForwardChannel(channel, fmt.Sprintf("%s:%d", p.Host1, p.Port1))
+				go h.directPortForwardChannel(ip, channel, fmt.Sprintf("%s:%d", p.Host1, p.Port1))
 			default:
 				log.Log("[ssh] Unknown channel type:", t)
 				newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unknown channel type: %s", t))
@@ -596,7 +596,7 @@ func (h *sshForwardHandler) handleForward(conn ssh.Conn, chans <-chan ssh.NewCha
 	conn.Wait()
 }
 
-func (h *sshForwardHandler) directPortForwardChannel(channel ssh.Channel, raddr string) {
+func (h *sshForwardHandler) directPortForwardChannel(ip net.IP, channel ssh.Channel, raddr string) {
 	defer channel.Close()
 
 	log.Logf("[ssh-tcp] %s - %s", h.options.Node.Addr, raddr)
@@ -616,6 +616,7 @@ func (h *sshForwardHandler) directPortForwardChannel(channel ssh.Channel, raddr 
 		TimeoutChainOption(h.options.Timeout),
 		HostsChainOption(h.options.Hosts),
 		ResolverChainOption(h.options.Resolver),
+		IPChainOption(ip),
 	)
 	if err != nil {
 		log.Logf("[ssh-tcp] %s - %s : %s", h.options.Node.Addr, raddr, err)
@@ -868,7 +869,8 @@ func defaultSSHPasswordCallback(au Authenticator) PasswordCallbackFunc {
 		return nil
 	}
 	return func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
-		if au.Authenticate(conn.User(), string(password)) {
+		ip := GetSshIP(conn)
+		if au.IFAuthenticate(ip, conn.User(), string(password)) {
 			return nil, nil
 		}
 		log.Logf("[ssh] %s -> %s : password rejected for %s", conn.RemoteAddr(), conn.LocalAddr(), conn.User())

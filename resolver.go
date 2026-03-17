@@ -408,7 +408,6 @@ func (r *resolver) Exchange(ctx context.Context, query []byte) (reply []byte, er
 	}
 
 	r.addSubnetOpt(mq)
-
 	for _, ns := range r.copyServers() {
 		log.Logf("[dns] exchange message %d via %s: %s", mq.Id, ns.String(), mq.Question[0].String())
 		mr, err = r.exchangeMsg(ctx, ns.exchanger, mq)
@@ -782,6 +781,7 @@ func (ex *dnsTCPExchanger) Exchange(ctx context.Context, query []byte) ([]byte, 
 }
 
 type dotExchanger struct {
+	ip        net.IP
 	addr      string
 	tlsConfig *tls.Config
 	options   exchangerOptions

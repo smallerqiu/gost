@@ -17,7 +17,7 @@ import (
 )
 
 type quicSession struct {
-	session quic.EarlyConnection
+	session *quic.Conn
 }
 
 func (session *quicSession) GetConn() (*quicConn, error) {
@@ -113,7 +113,7 @@ func (tr *quicTransporter) initSession(addr net.Addr, conn net.PacketConn) (*qui
 		HandshakeIdleTimeout: config.Timeout,
 		MaxIdleTimeout:       config.IdleTimeout,
 		KeepAlivePeriod:      config.KeepAlivePeriod,
-		Versions: []quic.VersionNumber{
+		Versions: []quic.Version{
 			quic.Version1,
 			quic.Version2,
 		},
@@ -155,7 +155,7 @@ func QUICListener(addr string, config *QUICConfig) (Listener, error) {
 		HandshakeIdleTimeout: config.Timeout,
 		KeepAlivePeriod:      config.KeepAlivePeriod,
 		MaxIdleTimeout:       config.IdleTimeout,
-		Versions: []quic.VersionNumber{
+		Versions: []quic.Version{
 			quic.Version1,
 			quic.Version2,
 		},
@@ -208,7 +208,7 @@ func (l *quicListener) listenLoop() {
 	}
 }
 
-func (l *quicListener) sessionLoop(session quic.Connection) {
+func (l *quicListener) sessionLoop(session *quic.Conn) {
 	log.Logf("[quic] %s <-> %s", session.RemoteAddr(), session.LocalAddr())
 	defer log.Logf("[quic] %s >-< %s", session.RemoteAddr(), session.LocalAddr())
 
@@ -223,6 +223,8 @@ func (l *quicListener) sessionLoop(session quic.Connection) {
 		cc := &quicConn{Stream: stream, laddr: session.LocalAddr(), raddr: session.RemoteAddr()}
 		select {
 		case l.connChan <- cc:
+		case <-stream.Context().Done():
+			stream.Close()
 		default:
 			cc.Close()
 			log.Logf("[quic] %s - %s: connection queue is full", session.RemoteAddr(), session.LocalAddr())
@@ -251,7 +253,7 @@ func (l *quicListener) Close() error {
 }
 
 type quicConn struct {
-	quic.Stream
+	*quic.Stream
 	laddr net.Addr
 	raddr net.Addr
 }
