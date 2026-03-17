@@ -14,24 +14,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Linux
-          - goos: linux
-            goarch: amd64
-          - goos: linux
-            goarch: arm64
-          - goos: linux
-            goarch: arm
-            goarm: 7
-          # Windows
-          - goos: windows
-            goarch: amd64
-          - goos: windows
-            goarch: arm64
-          # macOS
-          - goos: darwin
-            goarch: amd64
-          - goos: darwin
-            goarch: arm64
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: linux, goarch: arm, goarm: 7 }
+          - { goos: windows, goarch: amd64 }
+          - { goos: windows, goarch: arm64 } # 这个平台不加 UPX
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }  # 这个平台不加 UPX
 
     steps:
       - name: Checkout code
@@ -40,7 +29,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.7'
+          go-version: '1.21'
 
       - name: Build Binary
         env:
@@ -53,22 +42,22 @@ jobs:
           if [ "${{ matrix.goos }}" = "windows" ]; then
             BINARY_NAME=gost.exe
           fi
-          
-          # 关键点：使用 -s -w 代替外部 strip 工具，跨平台无报错
+          # 使用 -s -w 移除符号表和调试信息，这是全平台通用的“瘦身”
           go build -ldflags="-s -w" -o "$BINARY_NAME" ./cmd/gost
-          
           echo "BINARY_PATH=$BINARY_NAME" >> $GITHUB_ENV
 
       - name: UPX Compression
         uses: svenstaro/upx-action@v2
-        # 排除 macOS arm64 (签名问题) 和 Windows arm64 (UPX 暂不支持)
+        # 精准排除：
+        # 1. macOS arm64 (签名校验严格，压缩后易崩溃)
+        # 2. Windows arm64 (UPX 官方明确暂不支持)
         if: |
-          (matrix.goos != 'darwin' || matrix.goarch != 'arm64') &&
-          (matrix.goos != 'windows' || matrix.goarch != 'amd64')
+          !(matrix.goos == 'darwin' && matrix.goarch == 'arm64') &&
+          !(matrix.goos == 'windows' && matrix.goarch == 'arm64')
         with:
           files: ${{ env.BINARY_PATH }}
           args: --best --lzma
-          strip: false # 重要：设为 false，防止报错，编译时已 strip 过
+          strip: false 
 
       - name: Package Assets
         run: |
@@ -90,5 +79,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
+          tag_name: ${{ github.ref_name }}
           files: ${{ env.ASSET_PATH }}
           generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
