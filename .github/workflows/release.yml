@@ -1,38 +1,93 @@
-name: goreleaser
+name: Release Gost
 
 on:
   push:
-    # run only against tags
     tags:
-      - 'v*'
-
-permissions:
-  contents: write
-  # packages: write
-  # issues: write
+      - "v*" # 匹配 v1.0.0, v2.11.0 等标签
+  workflow_dispatch: # 支持手动触发
 
 jobs:
-  goreleaser:
+  build:
+    name: Build for ${{ matrix.goos }}_${{ matrix.goarch }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: arm
+            goarm: 7
+          # Windows
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+          # macOS
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          fetch-depth: 0
-      - run: git fetch --force --tags
-      - uses: actions/setup-go@v3
+          go-version: '1.25.7' # 根据你的 gost 版本要求调整 Go 版本
+
+      - name: Build Binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: 0
+        run: |
+          BINARY_NAME=gost
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            BINARY_NAME=gost.exe
+          fi
+          
+          # -s -w 压缩体积，移除调试信息
+          go build -ldflags="-s -w" -o "$BINARY_NAME" ./cmd/gost
+          
+          echo "BINARY_PATH=$BINARY_NAME" >> $GITHUB_ENV
+
+      - name: Install UPX
+        uses: svenstaro/upx-action@v2
         with:
-          go-version: '1.22'
-          cache: true
-      # More assembly might be required: Docker logins, GPG, etc. It all depends
-      # on your needs.
-      - uses: goreleaser/goreleaser-action@v4
+          # macOS arm64 暂时不支持 UPX 压缩，跳过
+          if: matrix.goos != 'darwin' || matrix.goarch != 'arm64'
+          files: ${{ env.BINARY_PATH }}
+          args: --best --lzma
+          strip: true
+
+      - name: Package
+        run: |
+          RELEASE_NAME=gost_${{ matrix.goos }}_${{ matrix.goarch }}
+          if [ "${{ matrix.goos }}" = "linux" ] && [ "${{ matrix.goarch }}" = "arm" ]; then
+            RELEASE_NAME=gost_${{ matrix.goos }}_${{ matrix.goarch }}v${{ matrix.goarm }}
+          fi
+          
+          mkdir -p release
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            zip "release/${RELEASE_NAME}.zip" "${{ env.BINARY_PATH }}"
+            echo "ASSET_PATH=release/${RELEASE_NAME}.zip" >> $GITHUB_ENV
+          else
+            tar -czvf "release/${RELEASE_NAME}.tar.gz" "${{ env.BINARY_PATH }}"
+            echo "ASSET_PATH=release/${RELEASE_NAME}.tar.gz" >> $GITHUB_ENV
+          fi
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          # either 'goreleaser' (default) or 'goreleaser-pro':
-          distribution: goreleaser
-          version: latest
-          args: release --clean
+          files: ${{ env.ASSET_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Your GoReleaser Pro key, if you are using the 'goreleaser-pro'
-          # distribution:
-          # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
