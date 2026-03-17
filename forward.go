@@ -119,6 +119,7 @@ func (h *tcpDirectForwardHandler) Handle(conn net.Conn) {
 	var cc net.Conn
 	var node Node
 	var err error
+	ip := GetIP(conn)
 	for i := 0; i < retries; i++ {
 		if len(h.group.Nodes()) > 0 {
 			node, err = h.group.Next()
@@ -132,6 +133,7 @@ func (h *tcpDirectForwardHandler) Handle(conn net.Conn) {
 			RetryChainOption(h.options.Retries),
 			TimeoutChainOption(h.options.Timeout),
 			ResolverChainOption(h.options.Resolver),
+			IPChainOption(ip),
 		)
 		if err != nil {
 			log.Logf("[tcp] %s -> %s : %s", conn.RemoteAddr(), conn.LocalAddr(), err)
@@ -197,13 +199,10 @@ func (h *udpDirectForwardHandler) Handle(conn net.Conn) {
 			return
 		}
 	}
-
-	cc, err := h.options.Chain.DialContext(
-		context.Background(),
-		"udp",
-		node.Addr,
-		ResolverChainOption(h.options.Resolver),
-	)
+	ip := GetIP(conn)
+	cc, err := h.options.Chain.DialContext(context.Background(), "udp", node.Addr,
+		IPChainOption(ip),
+		ResolverChainOption(h.options.Resolver))
 	if err != nil {
 		node.MarkDead()
 		log.Logf("[udp] %s - %s : %s", conn.RemoteAddr(), conn.LocalAddr(), err)
@@ -452,7 +451,8 @@ func (l *tcpRemoteForwardListener) Accept() (conn net.Conn, err error) {
 func (l *tcpRemoteForwardListener) accept() (conn net.Conn, err error) {
 	lastNode := l.chain.LastNode()
 	if lastNode.Protocol == "forward" && lastNode.Transport == "ssh" {
-		return l.chain.Dial(l.addr.String())
+		ip := GetIP(conn)
+		return l.chain.Dial(l.addr.String(), IPChainOption(ip))
 	}
 
 	if l.isChainValid() {

@@ -2,46 +2,58 @@ package gost
 
 import (
 	"bufio"
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"io"
 	"net"
 	"strings"
 	"sync"
 	"time"
+
 	"github.com/go-log/log"
 )
+
+// 防止 OTP 重放
+var usedOTP sync.Map
 
 // Authenticator is an interface for user authentication.
 type Authenticator interface {
 	Authenticate(user, password string) bool
-	InflowwAuthenticateContext(ctx context.Context, user, password string) bool
+	IFAuthenticate(ip net.IP, user, password string) bool
 }
 
-func (au *LocalAuthenticator) InflowwAuthenticateContext(ctx context.Context, user, password string) bool {
-	inboundIP := ctx.Value("InboundIP")
-	if inboundIP != nil {
-		ip := inboundIP.(net.IP)
-		if !ip.IsLoopback() && !ip.IsPrivate() {
-			expected := GeneratePass(ip.String(), user)
-			if expected == password {
-				return true
-			} else {
-				log.Logf("user pass %s/%s, expect pass %s", user, password, expected)
-			}
+func (au *LocalAuthenticator) IFAuthenticate(ip net.IP, user, password string) bool {
+	if ip == nil || user == "" || password == "" {
+		return false
+	}
+
+	// if isWhiteIP(ip) {
+	if len(password) == 64 {
+		expected := GeneratePassword(ip.String(), user)
+		if expected == password {
+			return true
+		} else {
+			log.Logf("user pass %s/%s, expect pass %s", user, password, expected)
 		}
+	} else {
+		// if !ip.IsLoopback() && !ip.IsPrivate() { // 存的时候已经判断.
+		secret := generateSecret(ip.String(), user)
+		ok, _ := verifyOTP(secret, password)
+
+		if !ok {
+			log.Logf("otp verify fail user=%s ip=%s pass=%s", user, ip, password)
+			return false
+		}
+		// todo: 备用.
+		// 防止 OTP 重放
+		// key := user + ":" + ip.String() + ":" + password
+		// if _, exists := usedOTP.Load(key); exists {
+		// 	log.Logf("otp replay attack user=%s ip=%s", user, ip)
+		// 	return false
+		// }
+		// usedOTP.Store(key, _)
+
+		return true
 	}
 	return false
-}
-
-func GeneratePass(ip, user string) string {
-	src := ip + user + "&&4sg123g[]/~"
-	hash := sha256.New()
-	hash.Write([]byte(src))
-	hashedSrc := hash.Sum(nil)
-	hashedSrcHex := hex.EncodeToString(hashedSrc)
-	return hashedSrcHex
 }
 
 // LocalAuthenticator is an Authenticator that authenticates client by local key-value pairs.

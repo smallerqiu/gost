@@ -1,6 +1,8 @@
 package gost
 
-import "net"
+import (
+	"net"
+)
 
 // tcpTransporter is a raw TCP transporter.
 type tcpTransporter struct{}

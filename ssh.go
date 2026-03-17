@@ -6,8 +6,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,13 +27,11 @@ const (
 	GostSSHTunnelRequest = "gost-tunnel" // extended request type for ssh tunnel
 )
 
-var (
-	errSessionDead = errors.New("session is dead")
-)
+var errSessionDead = errors.New("session is dead")
 
 // ParseSSHKeyFile parses ssh key file.
 func ParseSSHKeyFile(fp string) (ssh.Signer, error) {
-	key, err := ioutil.ReadFile(fp)
+	key, err := os.ReadFile(fp)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +40,7 @@ func ParseSSHKeyFile(fp string) (ssh.Signer, error) {
 
 // ParseSSHAuthorizedKeysFile parses ssh Authorized Keys file.
 func ParseSSHAuthorizedKeysFile(fp string) (map[string]bool, error) {
-	authorizedKeysBytes, err := ioutil.ReadFile(fp)
+	authorizedKeysBytes, err := os.ReadFile(fp)
 	if err != nil {
 		return nil, err
 	}
@@ -59,8 +57,7 @@ func ParseSSHAuthorizedKeysFile(fp string) (map[string]bool, error) {
 	return authorizedKeysMap, nil
 }
 
-type sshDirectForwardConnector struct {
-}
+type sshDirectForwardConnector struct{}
 
 // SSHDirectForwardConnector creates a Connector for SSH TCP direct port forwarding.
 func SSHDirectForwardConnector() Connector {
@@ -103,8 +100,7 @@ func (c *sshDirectForwardConnector) ConnectContext(ctx context.Context, conn net
 	return conn, nil
 }
 
-type sshRemoteForwardConnector struct {
-}
+type sshRemoteForwardConnector struct{}
 
 // SSHRemoteForwardConnector creates a Connector for SSH TCP remote port forwarding.
 func SSHRemoteForwardConnector() Connector {
@@ -587,9 +583,9 @@ func (h *sshForwardHandler) handleForward(conn ssh.Conn, chans <-chan ssh.NewCha
 				if p.Host1 == "<nil>" {
 					p.Host1 = ""
 				}
-
+				ip := GetSshIP(conn)
 				go ssh.DiscardRequests(requests)
-				go h.directPortForwardChannel(channel, fmt.Sprintf("%s:%d", p.Host1, p.Port1))
+				go h.directPortForwardChannel(ip, channel, fmt.Sprintf("%s:%d", p.Host1, p.Port1))
 			default:
 				log.Log("[ssh] Unknown channel type:", t)
 				newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unknown channel type: %s", t))
@@ -600,7 +596,7 @@ func (h *sshForwardHandler) handleForward(conn ssh.Conn, chans <-chan ssh.NewCha
 	conn.Wait()
 }
 
-func (h *sshForwardHandler) directPortForwardChannel(channel ssh.Channel, raddr string) {
+func (h *sshForwardHandler) directPortForwardChannel(ip net.IP, channel ssh.Channel, raddr string) {
 	defer channel.Close()
 
 	log.Logf("[ssh-tcp] %s - %s", h.options.Node.Addr, raddr)
@@ -620,6 +616,7 @@ func (h *sshForwardHandler) directPortForwardChannel(channel ssh.Channel, raddr 
 		TimeoutChainOption(h.options.Timeout),
 		HostsChainOption(h.options.Hosts),
 		ResolverChainOption(h.options.Resolver),
+		IPChainOption(ip),
 	)
 	if err != nil {
 		log.Logf("[ssh-tcp] %s - %s : %s", h.options.Node.Addr, raddr, err)
@@ -650,7 +647,7 @@ func (h *sshForwardHandler) tcpipForwardRequest(sshConn ssh.Conn, req *ssh.Reque
 		return
 	}
 
-	ln, err := net.Listen("tcp", addr) //tie to the client connection
+	ln, err := net.Listen("tcp", addr) // tie to the client connection
 	if err != nil {
 		log.Log("[ssh-rtcp]", err)
 		req.Reply(false, nil)
@@ -872,7 +869,8 @@ func defaultSSHPasswordCallback(au Authenticator) PasswordCallbackFunc {
 		return nil
 	}
 	return func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
-		if au.Authenticate(conn.User(), string(password)) {
+		ip := GetSshIP(conn)
+		if au.IFAuthenticate(ip, conn.User(), string(password)) {
 			return nil, nil
 		}
 		log.Logf("[ssh] %s -> %s : password rejected for %s", conn.RemoteAddr(), conn.LocalAddr(), conn.User())

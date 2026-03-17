@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -171,7 +170,7 @@ type Resolver interface {
 	// Init initializes the Resolver instance.
 	Init(opts ...ResolverOption) error
 	// Resolve returns a slice of that host's IPv4 and IPv6 addresses.
-	Resolve(ctx context.Context, host string) ([]net.IP, error)
+	Resolve(host string) ([]net.IP, error)
 	// Exchange performs a synchronous query,
 	// It sends the message query and waits for a reply.
 	Exchange(ctx context.Context, query []byte) (reply []byte, err error)
@@ -268,7 +267,7 @@ func (r *resolver) copyServers() []NameServer {
 	return servers
 }
 
-func (r *resolver) Resolve(ctx context.Context, host string) (ips []net.IP, err error) {
+func (r *resolver) Resolve(host string) (ips []net.IP, err error) {
 	r.mux.RLock()
 	domain := r.domain
 	r.mux.RUnlock()
@@ -281,6 +280,7 @@ func (r *resolver) Resolve(ctx context.Context, host string) (ips []net.IP, err 
 		host = host + "." + domain
 	}
 
+	ctx := context.Background()
 	for _, ns := range r.copyServers() {
 		ips, err = r.resolve(ctx, ns.exchanger, host)
 		if err != nil {
@@ -408,7 +408,6 @@ func (r *resolver) Exchange(ctx context.Context, query []byte) (reply []byte, er
 	}
 
 	r.addSubnetOpt(mq)
-
 	for _, ns := range r.copyServers() {
 		log.Logf("[dns] exchange message %d via %s: %s", mq.Id, ns.String(), mq.Question[0].String())
 		mr, err = r.exchangeMsg(ctx, ns.exchanger, mq)
@@ -782,6 +781,7 @@ func (ex *dnsTCPExchanger) Exchange(ctx context.Context, query []byte) ([]byte, 
 }
 
 type dotExchanger struct {
+	ip        net.IP
 	addr      string
 	tlsConfig *tls.Config
 	options   exchangerOptions
@@ -914,7 +914,7 @@ func (ex *dohExchanger) Exchange(ctx context.Context, query []byte) ([]byte, err
 	}
 
 	// Read wireformat response from the body
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the response body: %s", err)
 	}

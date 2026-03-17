@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -339,10 +338,11 @@ func (h *http2Handler) Handle(conn net.Conn) {
 		return
 	}
 
-	h.roundTrip(h2c.w, h2c.r)
+	ip := GetIP(conn)
+	h.roundTrip(ip, h2c.w, h2c.r)
 }
 
-func (h *http2Handler) roundTrip(w http.ResponseWriter, r *http.Request) {
+func (h *http2Handler) roundTrip(ip net.IP, w http.ResponseWriter, r *http.Request) {
 	host := r.Header.Get("Gost-Target")
 	if host == "" {
 		host = r.Host
@@ -389,10 +389,10 @@ func (h *http2Handler) roundTrip(w http.ResponseWriter, r *http.Request) {
 		ProtoMajor: 2,
 		ProtoMinor: 0,
 		Header:     http.Header{},
-		Body:       ioutil.NopCloser(bytes.NewReader([]byte{})),
+		Body:       io.NopCloser(bytes.NewReader([]byte{})),
 	}
 
-	if !h.authenticate(w, r, resp) {
+	if !h.authenticate(ip, w, r, resp) {
 		return
 	}
 
@@ -427,11 +427,11 @@ func (h *http2Handler) roundTrip(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Fprintf(&buf, "%s", host)
 		log.Log("[route]", buf.String())
-
 		cc, err = route.Dial(host,
 			TimeoutChainOption(h.options.Timeout),
 			HostsChainOption(h.options.Hosts),
 			ResolverChainOption(h.options.Resolver),
+			IPChainOption(ip),
 		)
 		if err == nil {
 			break
@@ -482,13 +482,13 @@ func (h *http2Handler) roundTrip(w http.ResponseWriter, r *http.Request) {
 	log.Logf("[http2] %s >-< %s", r.RemoteAddr, host)
 }
 
-func (h *http2Handler) authenticate(w http.ResponseWriter, r *http.Request, resp *http.Response) (ok bool) {
+func (h *http2Handler) authenticate(ip net.IP, w http.ResponseWriter, r *http.Request, resp *http.Response) (ok bool) {
 	laddr := h.options.Addr
 	u, p, _ := basicProxyAuth(r.Header.Get("Proxy-Authorization"))
 	if Debug && (u != "" || p != "") {
 		log.Logf("[http2] %s - %s : Authorization '%s' '%s'", r.RemoteAddr, laddr, u, p)
 	}
-	if h.options.Authenticator == nil || h.options.Authenticator.Authenticate(u, p) {
+	if h.options.Authenticator == nil || h.options.Authenticator.IFAuthenticate(ip, u, p) {
 		return true
 	}
 
@@ -539,7 +539,7 @@ func (h *http2Handler) authenticate(w http.ResponseWriter, r *http.Request, resp
 	} else {
 		resp.Header = http.Header{}
 		resp.Header.Set("Server", "nginx/1.14.1")
-		resp.Header.Set("Date", time.Now().Format(http.TimeFormat))
+		resp.Header.Set("Date", time.Now().UTC().Format(http.TimeFormat))
 		if resp.ContentLength > 0 {
 			resp.Header.Set("Content-Type", "text/html")
 		}
