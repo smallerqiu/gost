@@ -52,8 +52,8 @@ jobs:
         # 1. macOS arm64 (签名校验严格，压缩后易崩溃)
         # 2. Windows arm64 (UPX 官方明确暂不支持)
         if: |
-          !(matrix.goos == 'darwin') &&
-          !(matrix.goos == 'windows' && matrix.goarch == 'arm64')
+          (matrix.goos == 'linux') &&
+          (matrix.goos == 'windows' && matrix.goarch == 'amd64')
         with:
           files: ${{ env.BINARY_PATH }}
           args: --best --lzma
@@ -64,6 +64,13 @@ jobs:
           RELEASE_NAME=gost_${{ matrix.goos }}_${{ matrix.goarch }}
           if [ "${{ matrix.goos }}" = "linux" ] && [ "${{ matrix.goarch }}" = "arm" ]; then
             RELEASE_NAME=gost_${{ matrix.goos }}_${{ matrix.goarch }}v${{ matrix.goarm }}
+          fi
+
+          mkdir -p dist_tmp
+          cp "${{ env.BINARY_PATH }}" dist_tmp/
+          
+          if [ -f "./cmd/gost/gost.toml" ]; then
+            cp "./cmd/gost/gost.toml" dist_tmp/
           fi
           
           mkdir -p release_dist

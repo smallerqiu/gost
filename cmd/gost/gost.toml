@@ -1,9 +1,11 @@
 [auth]
 #动态口令周期 (s) 600=10分钟
 dynamic_period = 5
+
 #时间漂移
 dynamic_skew = 1
 
+#可使用固定密码的IP或者IP段
 ip_whitelist = [
    "127.0.0.1",
    "10.0.0.0/24",
@@ -13,11 +15,9 @@ ip_whitelist = [
 #动态密钥
 secret = "abcd&!&4sg123g[]/~"
 
-# SMTP 发信白名单
+#SMTP 发信白名单
 email_whitelist = [
   "allowed-mail-server.com:25",
   "smtp.secure.com:465",
   "smtp.secure.com:587",
 ]
-
-email_regex = ["^test[0-9]+@example.com$"]
