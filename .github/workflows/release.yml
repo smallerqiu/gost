@@ -3,8 +3,8 @@ name: Release Gost
 on:
   push:
     tags:
-      - "v*" # 匹配 v1.0.0, v2.11.0 等标签
-  workflow_dispatch: # 支持手动触发
+      - "v*"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -40,7 +40,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.7' # 根据你的 gost 版本要求调整 Go 版本
+          go-version: '1.25.7'
 
       - name: Build Binary
         env:
@@ -54,40 +54,41 @@ jobs:
             BINARY_NAME=gost.exe
           fi
           
-          # -s -w 压缩体积，移除调试信息
+          # 关键点：使用 -s -w 代替外部 strip 工具，跨平台无报错
           go build -ldflags="-s -w" -o "$BINARY_NAME" ./cmd/gost
           
           echo "BINARY_PATH=$BINARY_NAME" >> $GITHUB_ENV
 
-      - name: Install UPX
+      - name: UPX Compression
         uses: svenstaro/upx-action@v2
+        # 排除 macOS arm64 (签名问题) 和 Windows arm64 (UPX 暂不支持)
+        if: |
+          (matrix.goos != 'darwin' || matrix.goarch != 'arm64') &&
+          (matrix.goos != 'windows' || matrix.goarch != 'amd64')
         with:
-          # macOS arm64 暂时不支持 UPX 压缩，跳过
-          if: matrix.goos != 'darwin' || matrix.goarch != 'arm64'
           files: ${{ env.BINARY_PATH }}
           args: --best --lzma
-          strip: true
+          strip: false # 重要：设为 false，防止报错，编译时已 strip 过
 
-      - name: Package
+      - name: Package Assets
         run: |
           RELEASE_NAME=gost_${{ matrix.goos }}_${{ matrix.goarch }}
           if [ "${{ matrix.goos }}" = "linux" ] && [ "${{ matrix.goarch }}" = "arm" ]; then
             RELEASE_NAME=gost_${{ matrix.goos }}_${{ matrix.goarch }}v${{ matrix.goarm }}
           fi
           
-          mkdir -p release
+          mkdir -p release_dist
           if [ "${{ matrix.goos }}" = "windows" ]; then
-            zip "release/${RELEASE_NAME}.zip" "${{ env.BINARY_PATH }}"
-            echo "ASSET_PATH=release/${RELEASE_NAME}.zip" >> $GITHUB_ENV
+            zip "release_dist/${RELEASE_NAME}.zip" "${{ env.BINARY_PATH }}"
+            echo "ASSET_PATH=release_dist/${RELEASE_NAME}.zip" >> $GITHUB_ENV
           else
-            tar -czvf "release/${RELEASE_NAME}.tar.gz" "${{ env.BINARY_PATH }}"
-            echo "ASSET_PATH=release/${RELEASE_NAME}.tar.gz" >> $GITHUB_ENV
+            tar -czvf "release_dist/${RELEASE_NAME}.tar.gz" "${{ env.BINARY_PATH }}"
+            echo "ASSET_PATH=release_dist/${RELEASE_NAME}.tar.gz" >> $GITHUB_ENV
           fi
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
           files: ${{ env.ASSET_PATH }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: true
