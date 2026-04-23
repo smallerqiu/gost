@@ -36,7 +36,8 @@ func (au *LocalAuthenticator) IFAuthenticate(ip net.IP, user, password string) b
 	} else {
 		// if !ip.IsLoopback() && !ip.IsPrivate() { // 存的时候已经判断.
 		secret := generateSecret(ip.String(), user)
-		ok, _ := verifyOTP(secret, password)
+		// ok, _ := verifyOTP(secret, password)
+		ok := VerifyShortOTP(secret, password, config.Auth.DynamicPeriod)
 
 		if !ok {
 			log.Logf("otp verify fail user=%s ip=%s pass=%s", user, ip, password)
