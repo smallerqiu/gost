@@ -410,10 +410,7 @@ func (h *shadowUDPHandler) transportPacket(conn, cc net.PacketConn) (err error) 
 		}
 	}()
 
-	select {
-	case err = <-errc:
-	}
-
+	err = <-errc
 	return
 }
 

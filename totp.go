@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"time"
 )
 
@@ -64,4 +65,36 @@ func GeneratePassword(ip, user string) string {
 	hashedSrc := hash.Sum(nil)
 	hashedSrcHex := hex.EncodeToString(hashedSrc)
 	return hashedSrcHex
+}
+
+func GenerateShortOTP(key string) string {
+	data := make([]byte, 8)
+	binary.BigEndian.PutUint32(data[:4], rand.Uint32())
+	binary.BigEndian.PutUint32(data[4:], uint32(time.Now().Unix()))
+
+	encryptData := Encrypt(data, []byte(key))
+
+	return fmt.Sprintf("%x", encryptData)
+}
+
+func VerifyShortOTP(key string, otp string, maxAge int64) bool {
+	var encryptData []byte
+	_, err := fmt.Sscanf(otp, "%x", &encryptData)
+	if err != nil || len(encryptData) == 0 {
+		return false
+	}
+
+	decryptData := Decrypt(encryptData, []byte(key))
+	if len(decryptData) != 8 {
+		return false
+	}
+
+	timestamp := int64(binary.BigEndian.Uint32(decryptData[4:]))
+
+	now := time.Now().Unix()
+	if now-timestamp > maxAge || timestamp > now+5 {
+		return false
+	}
+
+	return true
 }

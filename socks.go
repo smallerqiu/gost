@@ -1314,11 +1314,7 @@ func (h *socks5Handler) transportUDP(relay, peer net.PacketConn) (err error) {
 		}
 	}()
 
-	select {
-	case err = <-errc:
-		//log.Println("w exit", err)
-	}
-
+	err = <-errc
 	return
 }
 
