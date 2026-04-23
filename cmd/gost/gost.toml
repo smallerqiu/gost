@@ -1,6 +1,6 @@
 [auth]
 #动态口令周期 (s) 600=10分钟
-dynamic_period = 5
+dynamic_period = 20
 #时间漂移
 dynamic_skew = 1
 
